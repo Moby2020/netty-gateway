@@ -16,11 +16,15 @@ import io.netty.handler.codec.http.HttpServerCodec;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 
+import java.util.List;
+
 public class Server {
 
+    private List<String> proxySeverList;
     private int port;
 
-    public Server(int port) {
+    public Server(List<String> proxySeverList, int port) {
+        this.proxySeverList = proxySeverList;
         this.port = port;
     }
 
@@ -49,11 +53,10 @@ public class Server {
                     pipeline.addLast(new HttpServerCodec());
                     pipeline.addLast(new HttpObjectAggregator(1024 * 1024));
                     pipeline.addLast(new HttpRequestFilterImpl());
-                    pipeline.addLast(new ServerHandler());
+                    pipeline.addLast(new ServerHandler(proxySeverList));
                 }
             });
             Channel channel = bootstrap.bind(port).sync().channel();
-            System.out.println("开启 netty server，监听端口为：" + port);
             channel.closeFuture().sync();
         } catch (InterruptedException e) {
             e.printStackTrace();

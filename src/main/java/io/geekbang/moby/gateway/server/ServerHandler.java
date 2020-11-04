@@ -1,5 +1,7 @@
 package io.geekbang.moby.gateway.server;
 
+import io.geekbang.moby.gateway.router.HttpEndpointRouter;
+import io.geekbang.moby.gateway.router.HttpEndpointRouterImpl;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
@@ -20,10 +22,16 @@ import static io.netty.handler.codec.http.HttpResponseStatus.OK;
 import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
 public class ServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
+    private List<String> endpoints;
+    private HttpEndpointRouter endpointRouterImpl;
+
+    public ServerHandler(List<String> endpoints) {
+        this.endpoints = endpoints;
+        this.endpointRouterImpl = new HttpEndpointRouterImpl();
+    }
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest fullHttpRequest) throws Exception {
-        // 打印filter 中设置的值
         String filterMsg = fullHttpRequest.headers().get("nio");
         System.out.println(filterMsg);
 
@@ -31,13 +39,13 @@ public class ServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> 
         Map<String, String> map = new HashMap<>();
         entries.forEach(headersMap -> map.put(headersMap.getKey(), headersMap.getValue()));
 
-        String url = "http://localhost:8088";
-        String uri = fullHttpRequest.uri();
-
         Request.Builder builder = new Request.Builder();
         map.forEach(builder::header);
 
+        String url = endpointRouterImpl.route(endpoints);
+        String uri = fullHttpRequest.uri();
         builder.url(url + uri);
+
         Request request = builder.get().build();
         OkHttpClient client = new OkHttpClient();
         Response response = client.newCall(request).execute();
@@ -48,4 +56,9 @@ public class ServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> 
         ctx.writeAndFlush(fullHttpResponse);
     }
 
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+        cause.printStackTrace();
+        ctx.close();
+    }
 }
